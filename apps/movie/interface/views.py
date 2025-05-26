@@ -13,6 +13,7 @@ from apps.movie.application.dtos import (
 )
 from apps.movie.application.services import MovieAppService
 from apps.movie.infrastructure.repositories import DjangoMovieRepository, DjangoMovieSearchRepository
+import traceback
 
 def get_movie_app_service():
     movie_repo = DjangoMovieRepository()
@@ -65,18 +66,26 @@ class MovieSearchAPIView(APIView):
 class MovieDetailAPIView(APIView):
     permission_classes = [AllowAny]
 
-    def get(self, request, movie_id):  # URL에서 movie_id를 받음
+    def get(self, request, movie_id):
         service = get_movie_app_service()
+
         try:
             movie_detail_dto = service.get_movie_details(movie_id=movie_id)
+
             if movie_detail_dto:
+                    
                 serializer = MovieDetailResponseSerializer(movie_detail_dto)
-                return Response(serializer.data)
-            return Response({"error": "영화를 찾을 수 없습니다."}, status=status.HTTP_404_NOT_FOUND)
-        except ValueError as e:  # 예: 잘못된 movie_id 형식 등
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "영화를 찾을 수 없습니다."}, status=status.HTTP_404_NOT_FOUND)
+        
+        except ValueError as e: # DTO 유효성 검사, 서비스 내의 명시적 ValueError 등
+            traceback.print_exc() # ⭐️ 상세 스택 트레이스 출력
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({"error": "영화 상세 정보 조회 중 오류 발생"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        except Exception as e: # 그 외 모든 예상치 못한 오류
+            traceback.print_exc() # ⭐️ 상세 스택 트레이스 출력
+            return Response({"error": "영화 상세 정보 조회 중 오류가 발생했습니다."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class PopularMoviesAPIView(APIView):

@@ -20,30 +20,33 @@ from typing import Optional, List
 from django.db.models import Q, Avg, Subquery, OuterRef
 from django.db import transaction
 
-class DjangoMovieRepository(MovieRepository):
-    def _to_domain_object(self, movie_model: MovieModel) -> Optional[Movie]:
+class DjangoMovieRepository(MovieRepository): # UserAccount -> Movie 타입 힌트 수정 필요 (이전 답변 참고)
+    def _to_domain_object(self, movie_model): # MovieModel 타입 힌트 수정 필요
         if not movie_model:
             return None
 
         title_info_vo = TitleInfoVO(korean_title=movie_model.korean_title, original_title=movie_model.original_title)
-        plot_vo = PlotVO(text=movie_model.plot)
+        plot_vo = PlotVO(text=movie_model.plot) # PlotVO는 내부적으로 None 처리 가능
+        
         release_date_vo = ReleaseDateVO(release_date=movie_model.release_date) if movie_model.release_date else None
         runtime_vo = RuntimeVO(minutes=movie_model.runtime_minutes) if movie_model.runtime_minutes is not None else None
         poster_image_vo = PosterImageVO(url=movie_model.poster_image_url) if movie_model.poster_image_url else None
 
+        # 리스트 타입 필드들은 .all() 호출 결과가 비어있으면 빈 리스트가 됨
         genres_vo = [GenreVO(name=g.name) for g in movie_model.genres.all()]
         directors_vo = [DirectorVO(name=d.name, external_id=d.external_id) for d in movie_model.directors.all()]
-
+        
         cast_vo = []
-        for cast_member in movie_model.cast_members.select_related('actor').all():
-            cast_vo.append(ActorVO(name=cast_member.actor.name, role_name=cast_member.role_name,
-                                   external_id=cast_member.actor.external_id))
+        if hasattr(movie_model, 'cast_members'): # cast_members 관계가 존재할 경우
+            for cast_member in movie_model.cast_members.select_related('actor').all():
+                cast_vo.append(ActorVO(name=cast_member.actor.name, role_name=cast_member.role_name,
+                                       external_id=cast_member.actor.external_id))
 
-        still_cuts_vo = [StillCutVO(image_url=sc.image_url, caption=sc.caption, display_order=sc.display_order) for sc
-                         in movie_model.still_cuts.all()]
+        still_cuts_vo = [StillCutVO(image_url=sc.image_url, caption=sc.caption, display_order=sc.display_order) 
+                         for sc in movie_model.still_cuts.all()]
         trailers_vo = [
-            TrailerVO(url=t.url, trailer_type=t.trailer_type, site_name=t.site_name, thumbnail_url=t.thumbnail_url) for
-            t in movie_model.trailers.all()]
+            TrailerVO(url=t.url, trailer_type=t.trailer_type, site_name=t.site_name, thumbnail_url=t.thumbnail_url) 
+            for t in movie_model.trailers.all()]
 
         platform_ratings_vo = [
             MoviePlatformRatingVO(platform_name=r.platform_name, score=r.score)
@@ -59,20 +62,19 @@ class DjangoMovieRepository(MovieRepository):
             movie_id=movie_model.id,
             title_info=title_info_vo,
             plot=plot_vo,
-            release_date=release_date_vo,
-            runtime=runtime_vo,
-            poster_image=poster_image_vo,
-            genres=genres_vo,
-            directors=directors_vo,
-            cast=cast_vo,
-            still_cuts=still_cuts_vo,
-            trailers=trailers_vo,
-            platform_ratings=platform_ratings_vo,
-            ott_availability=ott_availability_vo,
+            release_date=release_date_vo, # None이 전달될 수 있음
+            runtime=runtime_vo,           # None이 전달될 수 있음
+            poster_image=poster_image_vo, # None이 전달될 수 있음
+            genres=genres_vo,             # 빈 리스트 또는 VO가 채워진 리스트 전달
+            directors=directors_vo,       # 빈 리스트 또는 VO가 채워진 리스트 전달
+            cast=cast_vo,                 # 빈 리스트 또는 VO가 채워진 리스트 전달
+            still_cuts=still_cuts_vo,     # 빈 리스트 또는 VO가 채워진 리스트 전달
+            trailers=trailers_vo,         # 빈 리스트 또는 VO가 채워진 리스트 전달
+            platform_ratings=platform_ratings_vo, # 빈 리스트 또는 VO가 채워진 리스트 전달
+            ott_availability=ott_availability_vo, # 빈 리스트 또는 VO가 채워진 리스트 전달
             created_at=movie_model.created_at,
             updated_at=movie_model.updated_at
         )
-
     def find_by_id(self, movie_id: int) -> Optional[Movie]:
         try:
             movie_model = MovieModel.objects.prefetch_related(
