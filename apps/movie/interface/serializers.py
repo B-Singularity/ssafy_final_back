@@ -1,28 +1,15 @@
 from rest_framework import serializers
 
 
-class FilterOptionsRequestSerializer(serializers.Serializer):
-    genres = serializers.ListField(child=serializers.CharField(), required=False)
+class MovieSearchQueryParamSerializer(serializers.Serializer):
+    keyword = serializers.CharField(required=False, allow_blank=True, max_length=100, allow_null=True)
+    genres = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     release_year_from = serializers.IntegerField(required=False, allow_null=True)
     release_year_to = serializers.IntegerField(required=False, allow_null=True)
-    # production_countries 제거
-
-
-class SortOptionRequestSerializer(serializers.Serializer):
-    field = serializers.CharField(required=True)
-    direction = serializers.ChoiceField(choices=['asc', 'desc'], required=True)
-
-
-class PaginationRequestSerializer(serializers.Serializer):
-    page_number = serializers.IntegerField(default=1, min_value=1)
-    page_size = serializers.IntegerField(default=20, min_value=1, max_value=100)
-
-
-class MovieSearchCriteriaRequestSerializer(serializers.Serializer):
-    keyword = serializers.CharField(required=False, allow_blank=True, max_length=100)
-    filters = FilterOptionsRequestSerializer(required=False)
-    sort_by = SortOptionRequestSerializer(required=False)
-    pagination = PaginationRequestSerializer(required=False)
+    sort_field = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    sort_direction = serializers.ChoiceField(choices=['asc', 'desc'], required=False, allow_blank=True, allow_null=True)
+    page_number = serializers.IntegerField(required=False, min_value=1, allow_null=True)
+    page_size = serializers.IntegerField(required=False, min_value=1, max_value=100, allow_null=True)
 
 
 class SearchedMovieItemResponseSerializer(serializers.Serializer):
@@ -32,7 +19,6 @@ class SearchedMovieItemResponseSerializer(serializers.Serializer):
     release_year = serializers.IntegerField(allow_null=True)
     rating = serializers.FloatField(allow_null=True)
 
-
 class MovieSearchResultResponseSerializer(serializers.Serializer):
     movies = SearchedMovieItemResponseSerializer(many=True)
     total_results = serializers.IntegerField()
@@ -40,21 +26,17 @@ class MovieSearchResultResponseSerializer(serializers.Serializer):
     total_pages = serializers.IntegerField()
     message = serializers.CharField(allow_null=True, required=False)
 
-
 class TitleInfoDisplayResponseSerializer(serializers.Serializer):
     korean_title = serializers.CharField()
     original_title = serializers.CharField(allow_null=True, required=False)
 
-
 class PlotDisplayResponseSerializer(serializers.Serializer):
     text = serializers.CharField(allow_null=True, required=False)
-
-
+        
 class StillCutDisplayResponseSerializer(serializers.Serializer):
     image_url = serializers.URLField()
     caption = serializers.CharField(allow_null=True, required=False)
     display_order = serializers.IntegerField()
-
 
 class TrailerDisplayResponseSerializer(serializers.Serializer):
     url = serializers.URLField()
@@ -62,11 +44,9 @@ class TrailerDisplayResponseSerializer(serializers.Serializer):
     site_name = serializers.CharField(allow_null=True, required=False)
     thumbnail_url = serializers.URLField(allow_null=True, required=False)
 
-
 class MoviePlatformRatingDisplayResponseSerializer(serializers.Serializer):
     platform_name = serializers.CharField()
     score = serializers.FloatField()
-
 
 class OTTInfoDisplayResponseSerializer(serializers.Serializer):
     platform_name = serializers.CharField()
@@ -74,14 +54,13 @@ class OTTInfoDisplayResponseSerializer(serializers.Serializer):
     logo_image_url = serializers.URLField(allow_null=True, required=False)
     availability_note = serializers.CharField(allow_null=True, required=False)
 
-
 class MovieDetailResponseSerializer(serializers.Serializer):
     movie_id = serializers.IntegerField()
     title_info = TitleInfoDisplayResponseSerializer()
     plot = PlotDisplayResponseSerializer()
     release_date_str = serializers.CharField()
     runtime_minutes = serializers.IntegerField()
-    poster_image_url = serializers.URLField()
+    poster_image_url = serializers.URLField(allow_blank=True, allow_null=True) # PosterImageVO가 None일 수 있으므로
     genres = serializers.ListField(child=serializers.CharField())
     directors = serializers.ListField(child=serializers.CharField())
     cast = serializers.ListField(child=serializers.CharField())
@@ -89,6 +68,5 @@ class MovieDetailResponseSerializer(serializers.Serializer):
     trailers = TrailerDisplayResponseSerializer(many=True)
     platform_ratings = MoviePlatformRatingDisplayResponseSerializer(many=True)
     ott_availability = OTTInfoDisplayResponseSerializer(many=True)
-    created_at_str = serializers.CharField()  # DateTimeField(read_only=True)도 가능
-    updated_at_str = serializers.CharField(allow_null=True,
-                                           required=False)  # DateTimeField(read_only=True, allow_null=True)도 가능
+    created_at_str = serializers.CharField()
+    updated_at_str = serializers.CharField(allow_null=True, required=False)

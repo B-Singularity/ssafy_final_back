@@ -1,7 +1,8 @@
-from typing import List, Optional
+# 파일 경로: apps/movie/application/services.py
+# from typing import List, Optional # 타입 힌트 제거
 from datetime import datetime
 
-from django.utils import timezone
+from django.utils import timezone 
 
 from apps.movie.domain.repositories import MovieRepository, MovieSearchRepository
 from apps.movie.domain.aggregates.movie import Movie
@@ -9,12 +10,12 @@ from .dtos import (
     MovieSearchCriteriaDto, MovieSearchResultDto, SearchedMovieItemDto,
     MovieDetailDto, TitleInfoDisplayDto, PlotDisplayDto, StillCutDisplayDto,
     TrailerDisplayDto, MoviePlatformRatingDisplayDto, OTTInfoDisplayDto,
-    PaginationDto
+    PaginationDto, FilterOptionsDto, SortOptionDto 
 )
 
 class MovieAppService:
-    def __init__(self,
-                 movie_repository,
+    def __init__(self, 
+                 movie_repository, 
                  movie_search_repository):
         self.movie_repository = movie_repository
         self.movie_search_repository = movie_search_repository
@@ -23,23 +24,23 @@ class MovieAppService:
         genres_display = [genre_vo.name for genre_vo in movie.genres]
         directors_display = [director_vo.name for director_vo in movie.directors]
         cast_display = [
-            f"{actor_vo.name}{' (' + actor_vo.role_name + ')' if actor_vo.role_name else ''}"
+            f"{actor_vo.name}{' (' + actor_vo.role_name + ')' if actor_vo.role_name else ''}" 
             for actor_vo in movie.cast
         ]
         still_cuts_display = [
             StillCutDisplayDto(
-                image_url=still_cut.image_url,
-                caption=still_cut.caption,
-                display_order=still_cut.display_order
-            ) for still_cut in movie.still_cuts
+                image_url=sc.image_url, 
+                caption=sc.caption, 
+                display_order=sc.display_order
+            ) for sc in movie.still_cuts
         ]
         trailers_display = [
             TrailerDisplayDto(
-                url=trailer.url,
-                trailer_type=trailer.trailer_type,
-                site_name=trailer.site_name,
-                thumbnail_url=trailer.thumbnail_url
-            ) for trailer in movie.trailers # 이전 코드에서 movie.trailer 오타 수정 (movie.trailers가 맞음)
+                url=t.url, 
+                trailer_type=t.trailer_type, 
+                site_name=t.site_name,
+                thumbnail_url=t.thumbnail_url
+            ) for t in movie.trailers
         ]
         platform_ratings_display = [
             MoviePlatformRatingDisplayDto(
@@ -55,22 +56,19 @@ class MovieAppService:
                 availability_note=o.availability_note
             ) for o in movie.ott_availability
         ]
-
-        # MovieDetailDto의 필드 정의에 맞춰 None 또는 기본값 처리
-        # TitleInfoDisplayDto 와 PlotDisplayDto는 필수라고 가정하고,
-        # Movie 애그리게이트의 title_info, plot이 None이 아니라고 가정
+        
         title_info_dto = TitleInfoDisplayDto(
-            korean_title=movie.title_info.korean_title,
-            original_title=movie.title_info.original_title
+            korean_title=movie.title_info.korean_title if movie.title_info else "제목 정보 없음",
+            original_title=movie.title_info.original_title if movie.title_info else None
         )
-        plot_dto = PlotDisplayDto(text=movie.plot.text)
+        plot_dto = PlotDisplayDto(text=movie.plot.text if movie.plot else None)
         
         release_date_str_val = movie.release_date.formatted() if movie.release_date else "정보 없음"
         runtime_minutes_val = movie.runtime.minutes if movie.runtime else 0
-        poster_image_url_val = movie.poster_image.url if movie.poster_image else "" # DTO가 str을 기대하면 빈 문자열
+        poster_image_url_val = movie.poster_image.url if movie.poster_image else ""
         
-        created_at_str_val = movie.created_at.isoformat() if movie.created_at else "정보 없음" # DTO가 str을 기대
-        updated_at_str_val = movie.updated_at.isoformat() if movie.updated_at else None # DTO가 Optional[str]을 기대
+        created_at_str_val = movie.created_at.isoformat() if movie.created_at else "정보 없음"
+        updated_at_str_val = movie.updated_at.isoformat() if movie.updated_at else None
 
         return MovieDetailDto(
             movie_id=movie.movie_id,
@@ -97,15 +95,16 @@ class MovieAppService:
         movie_aggregate = self.movie_repository.find_by_id(movie_id)
         if not movie_aggregate:
             return None
-
+        
         movie_detail_dto = self._movie_aggregate_to_detail_dto(movie_aggregate)
         return movie_detail_dto
 
-    def get_popular_movies(self,
-                           list_type,
-                           genre_filter=None,
+    def get_popular_movies(self, 
+                           list_type, 
+                           genre_filter=None, 
                            pagination_dto=None
-                           ):
+                          ):
+        
         resolved_pagination = pagination_dto if pagination_dto else PaginationDto()
         return self.movie_search_repository.find_popular_movies(
             list_type_criterion=list_type,
