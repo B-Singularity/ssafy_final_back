@@ -26,5 +26,5 @@ class CommentListResponseSerializer(serializers.Serializer):
     total_pages = serializers.IntegerField(read_only=True)
 
 class PaginationInfoRequestSerializer(serializers.Serializer):
-    page = serializers.IntegerField(default=1, min_value=1)
+    page_number = serializers.IntegerField(default=1, min_value=1)
     page_size = serializers.IntegerField(default=10, min_value=1, max_value=50)

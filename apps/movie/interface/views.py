@@ -14,6 +14,8 @@ from apps.movie.application.dtos import (
 )
 from apps.movie.application.services import MovieAppService
 from apps.movie.infrastructure.repositories import DjangoMovieRepository, DjangoMovieSearchRepository
+from ...review_community.interface.serializers import PaginationInfoRequestSerializer
+
 
 
 def get_movie_app_service():
@@ -63,6 +65,9 @@ class MovieSearchAPIView(APIView):
                         rating_platform=effective_rating_platform
                     )
                 except ValueError as e: # SortOptionDto 생성자에서 발생한 ValueError 처리
+                    print(f"!!! [VIEW] SortOptionDto 생성 중 ValueError: {str(e)} !!!")
+                    import traceback
+                    traceback.print_exc()
                     return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
             pagination_dto = PaginationDto(
@@ -96,25 +101,43 @@ class MovieSearchAPIView(APIView):
             return Response(query_param_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class MovieDetailAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, movie_id):
-        service = get_movie_app_service()
-        try:
-            movie_detail_dto = service.get_movie_details(movie_id=movie_id)
-            if movie_detail_dto:
-                serializer = MovieDetailResponseSerializer(movie_detail_dto)
-                return Response(serializer.data)
-            return Response({"error": "영화를 찾을 수 없습니다."}, status=status.HTTP_404_NOT_FOUND)
-        except ValueError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            print(f"!!! MovieDetailAPIView 서비스 호출 중 오류: {type(e).__name__} - {str(e)} !!!")
-            traceback.print_exc()
-            return Response({"error": "영화 상세 정보 조회 중 오류 발생"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        print(f"--- [VIEW_DETAIL] MovieDetailAPIView.get() 호출 시작, movie_id: {movie_id} ---")
 
+        try:
+            print("--- [VIEW_DETAIL] get_movie_app_service() 호출 직전 ---")
+            service = get_movie_app_service()
+            print(f"--- [VIEW_DETAIL] service.get_movie_details({movie_id}) 호출 직전 ---")
+
+            movie_detail_dto = service.get_movie_details(movie_id=movie_id)
+
+            print(f"--- [VIEW_DETAIL] service.get_movie_details() 반환값: {type(movie_detail_dto)} ---")
+            if movie_detail_dto is not None:
+                print(
+                    f"--- [VIEW_DETAIL] movie_detail_dto ID (존재 시): {getattr(movie_detail_dto, 'movie_id', 'N/A')} ---")
+
+            if movie_detail_dto:
+                print(f"--- [VIEW_DETAIL] movie_detail_dto 있음, 시리얼라이저 생성 직전 ---")
+                serializer = MovieDetailResponseSerializer(movie_detail_dto)
+                print(f"--- [VIEW_DETAIL] MovieDetailResponseSerializer 생성 성공 ---")
+                # print(f"--- [VIEW_DETAIL] Serializer data (일부): {serializer.data.get('movie_id')} ---") # 데이터가 너무 클 수 있으므로 주의
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                print(f"--- [VIEW_DETAIL] 영화 ID {movie_id}에 대한 정보 없음 (서비스가 None 반환), 404 반환 ---")
+                return Response({"error": "영화를 찾을 수 없습니다."}, status=status.HTTP_404_NOT_FOUND)
+
+        except ValueError as e:
+            print(f"!!! [VIEW_DETAIL] ValueError 발생: {str(e)} !!!")
+            traceback.print_exc()
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            print(f"!!! [VIEW_DETAIL] 일반 Exception 발생: {type(e).__name__} - {str(e)} !!!")
+            traceback.print_exc()
+            return Response({"error": "영화 상세 정보 조회 중 오류가 발생했습니다."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class PopularMoviesAPIView(APIView):
     permission_classes = [AllowAny]

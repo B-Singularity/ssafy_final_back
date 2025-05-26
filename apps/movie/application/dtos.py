@@ -17,24 +17,32 @@ class FilterOptionsDto:
 
 class SortOptionDto:
     def __init__(self, field, direction, rating_platform=None):
+        print(
+            f"--- [DTO Init] SortOptionDto: field='{field}', direction='{direction}', rating_platform='{rating_platform}', type(rating_platform)='{type(rating_platform)}' ---")  # ⭐️ 디버그 프린트
+
         if not field:
             raise ValueError("정렬 기준 필드는 비어있을 수 없습니다.")
-
 
         direction_lower = str(direction).lower()
         if direction_lower not in ['asc', 'desc']:
             raise ValueError("정렬 방향은 'asc' 또는 'desc'여야 합니다.")
-        
-        if field == "rating" and not rating_platform:
+
+        # rating_platform이 None이거나, 공백만 있는 문자열인지 더 명확하게 확인
+        is_rating_platform_provided = rating_platform is not None and isinstance(rating_platform,
+                                                                                 str) and rating_platform.strip() != ""
+
+        if field == "rating" and not is_rating_platform_provided:
+            print(
+                f"--- [DTO Error] SortOptionDto: field is 'rating' but rating_platform is not provided or empty. Value: '{rating_platform}' ---")  # ⭐️ 디버그 프린트
             raise ValueError("평점 정렬 시 'rating_platform'을 지정해야 합니다.")
-        
-        if rating_platform is not None:
-            if not isinstance(rating_platform, str) or not rating_platform.strip():
-                raise ValueError("rating_platform은 비어있지 않은 문자열이어야 합니다.")
+
+        if rating_platform is not None and not isinstance(rating_platform, str):
+            # 이 검사는 is_rating_platform_provided에서 이미 어느 정도 커버됨
+            raise TypeError("rating_platform은 문자열이어야 합니다.")
 
         self.field = field
         self.direction = direction_lower
-        self.rating_platform = rating_platform.strip() if rating_platform else None
+        self.rating_platform = rating_platform.strip() if isinstance(rating_platform, str) and rating_platform else None
 
 
 class PaginationDto:

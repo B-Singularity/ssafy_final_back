@@ -8,6 +8,7 @@ class MovieSearchQueryParamSerializer(serializers.Serializer):
     release_year_to = serializers.IntegerField(required=False, allow_null=True)
     sort_field = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     sort_direction = serializers.ChoiceField(choices=['asc', 'desc'], required=False, allow_blank=True, allow_null=True)
+    rating_platform = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     page_number = serializers.IntegerField(required=False, min_value=1, allow_null=True)
     page_size = serializers.IntegerField(required=False, min_value=1, max_value=100, allow_null=True)
 

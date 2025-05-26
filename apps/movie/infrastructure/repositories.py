@@ -21,6 +21,7 @@ from apps.movie.domain.value_objects.ott_info_vo import OTTInfoVO
 from apps.movie.domain.repositories import MovieRepository, MovieSearchRepository
 from apps.movie.models import MovieModel, GenreModel, PersonModel, MovieCastMemberModel, StillCutModel, TrailerModel, MoviePlatformRatingModel, OTTPlatformModel, MovieOTTAvailabilityModel
 from apps.movie.application.dtos import MovieSearchCriteriaDto, MovieSearchResultDto, SearchedMovieItemDto, PaginationDto, FilterOptionsDto, SortOptionDto
+import datetime
 
 
 class DjangoMovieRepository(MovieRepository):
@@ -85,23 +86,44 @@ class DjangoMovieRepository(MovieRepository):
             return None
 
     @transaction.atomic
-    def save(self, movie):
-        movie_model, created = MovieModel.objects.update_or_create(
-            id=movie.movie_id if movie.movie_id and movie.movie_id > 0 else None,
-            defaults={
-                'korean_title': movie.title_info.korean_title,
-                'original_title': movie.title_info.original_title,
-                'plot': movie.plot.text if movie.plot else None,
-                'release_date': movie.release_date.release_date if movie.release_date else None,
-                'runtime_minutes': movie.runtime.minutes if movie.runtime else None,
-                'poster_image_url': movie.poster_image.url if movie.poster_image else None,
-                'created_at': movie.created_at if created and movie.created_at else (MovieModel.objects.get(id=movie.movie_id).created_at if not created else None) ,
-                'updated_at': movie.updated_at,
-            }
-        )
-        if created and (not movie.movie_id or movie.movie_id <= 0):
-             pass 
+    def save(self, movie):  # 타입 힌트는 이전 요청에 따라 제거
+        defaults_to_set = {
+            'korean_title': movie.title_info.korean_title,
+            'original_title': movie.title_info.original_title,
+            'plot': movie.plot.text if movie.plot else None,
+            'release_date': movie.release_date.release_date if movie.release_date else None,
+            'runtime_minutes': movie.runtime.minutes if movie.runtime else None,
+            'poster_image_url': movie.poster_image.url if movie.poster_image else None,
+            'updated_at': movie.updated_at if movie.updated_at else datetime.now(),
+        }
 
+        if movie.movie_id and movie.movie_id > 0:
+            # ID가 존재하면 업데이트 시나리오
+            # created_at은 업데이트하지 않으므로 defaults_to_set에 포함하지 않음
+            movie_model, created = MovieModel.objects.update_or_create(
+                id=movie.movie_id,
+                defaults=defaults_to_set
+            )
+            if created:
+                # ID가 있었지만 DB에 없어 새로 생성된 경우 (일반적이지 않은 AutoField 시나리오)
+                # 이 경우 created_at을 도메인 객체의 값으로 설정할 수 있음
+                if movie.created_at:
+                    movie_model.created_at = movie.created_at
+                    movie_model.save(update_fields=['created_at'])
+        else:
+            # ID가 없거나 0이면 신규 생성 시나리오
+            # MovieModel의 created_at 필드에 auto_now_add=True가 있다면,
+            # create 시 자동으로 설정되므로 defaults_to_set에 추가할 필요 없음.
+            # 만약 도메인 객체의 created_at 값을 우선적으로 사용하고 싶다면,
+            # 모델 필드의 auto_now_add를 False로 하거나 default=timezone.now 등으로 하고 여기서 설정.
+            if movie.created_at:
+                defaults_to_set['created_at'] = movie.created_at
+
+            # MovieModel의 id가 AutoField이므로, id 없이 create
+            movie_model = MovieModel.objects.create(**defaults_to_set)
+            # created = True # 이 변수는 이후 로직에서 사용되지 않는다면 불필요
+
+        # 관계 필드 처리
         genre_instances = []
         for genre_vo in movie.genres:
             genre_instance, _ = GenreModel.objects.get_or_create(name=genre_vo.name)
@@ -110,25 +132,33 @@ class DjangoMovieRepository(MovieRepository):
 
         director_instances = []
         for director_vo in movie.directors:
-            person_instance, _ = PersonModel.objects.get_or_create(name=director_vo.name, defaults={'external_id': director_vo.external_id})
+            person_instance, _ = PersonModel.objects.get_or_create(name=director_vo.name,
+                                                                   defaults={'external_id': director_vo.external_id})
             director_instances.append(person_instance)
         movie_model.directors.set(director_instances)
-        
-        movie_model.cast_members.all().delete()
+
+        MovieCastMemberModel.objects.filter(movie=movie_model).delete()
         for actor_vo in movie.cast:
-            actor_instance, _ = PersonModel.objects.get_or_create(name=actor_vo.name, defaults={'external_id': actor_vo.external_id})
+            actor_instance, _ = PersonModel.objects.get_or_create(name=actor_vo.name,
+                                                                  defaults={'external_id': actor_vo.external_id})
             MovieCastMemberModel.objects.create(movie=movie_model, actor=actor_instance, role_name=actor_vo.role_name)
 
         MoviePlatformRatingModel.objects.filter(movie=movie_model).delete()
         for rating_vo in movie.platform_ratings:
-            MoviePlatformRatingModel.objects.create(movie=movie_model, platform_name=rating_vo.platform_name, score=rating_vo.score)
-            
+            MoviePlatformRatingModel.objects.create(movie=movie_model, platform_name=rating_vo.platform_name,
+                                                    score=rating_vo.score)
+
         MovieOTTAvailabilityModel.objects.filter(movie=movie_model).delete()
         for ott_vo in movie.ott_availability:
-            platform_instance, _ = OTTPlatformModel.objects.get_or_create(name=ott_vo.platform_name, defaults={'logo_image_url': ott_vo.logo_image_url})
-            MovieOTTAvailabilityModel.objects.create(movie=movie_model, platform=platform_instance, watch_url=ott_vo.watch_url, availability_note=ott_vo.availability_note)
-        
-        return self._to_domain_object(MovieModel.objects.get(id=movie_model.id))
+            platform_instance, _ = OTTPlatformModel.objects.get_or_create(name=ott_vo.platform_name, defaults={
+                'logo_image_url': ott_vo.logo_image_url})
+            MovieOTTAvailabilityModel.objects.create(movie=movie_model, platform=platform_instance,
+                                                     watch_url=ott_vo.watch_url,
+                                                     availability_note=ott_vo.availability_note)
+
+        # 저장 또는 생성된 movie_model을 기반으로 도메인 객체를 다시 만듭니다.
+        # 이렇게 하면 DB에 의해 자동 생성/수정된 값(예: id, auto_now_add, auto_now 필드)이 반영됩니다.
+        return self._to_domain_object(movie_model)
 
     @transaction.atomic
     def delete(self, movie_id):
@@ -244,7 +274,7 @@ class DjangoMovieSearchRepository(MovieSearchRepository):
             queryset = queryset.annotate(relevant_score=Coalesce(Subquery(platform_score_subquery, output_field=FloatField()), Value(0.0)))
             order_by_fields.extend(['-relevant_score', '-created_at'])
         elif list_type_criterion == "top_rated_watcha":
-            rating_platform_for_popular = "왓챠"
+            rating_platform_for_popular = "왓차"
             platform_score_subquery = MoviePlatformRatingModel.objects.filter(
                 movie=OuterRef('pk'), platform_name=rating_platform_for_popular
             ).values('score')[:1]
