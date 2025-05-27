@@ -52,12 +52,12 @@ class CommentAppService:
     def get_comments_for_movie(self, movie_id, pagination_request_dto):
         comment_thread = self.comment_thread_repository.find_by_movie_id(movie_id)
         if not comment_thread:
-            return CommentListDto(comments=[], total_count=0, page=pagination_request_dto.page, page_size=pagination_request_dto.page_size)
+            return CommentListDto(comments=[], total_count=0, page_number=pagination_request_dto.page_number, page_size=pagination_request_dto.page_size)
 
         all_comments = sorted(comment_thread.comments, key=lambda c: c.created_at, reverse=True)
         
         paginator = Paginator(all_comments, pagination_request_dto.page_size)
-        page_obj = paginator.get_page(pagination_request_dto.page)
+        page_obj = paginator.get_page(pagination_request_dto.page_number)
         
         comment_dtos = [self._map_comment_entity_to_dto_with_movie_id(comment_entity, movie_id) for comment_entity in page_obj.object_list]
         

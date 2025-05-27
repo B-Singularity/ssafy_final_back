@@ -48,10 +48,10 @@ class CommentListDto:
         self.total_pages = (total_count + page_size - 1) // page_size if page_size > 0 else 0
 
 class PaginationInfoRequestDto: 
-    def __init__(self, page = 1, page_size = 10):
-        if not isinstance(page, int) or page < 1:
+    def __init__(self, page_number = 1, page_size = 10):
+        if not isinstance(page_number, int) or page_number < 1:
             raise ValueError("페이지 번호는 1 이상의 정수여야 합니다.")
         if not isinstance(page_size, int) or not (1 <= page_size <= 50):
             raise ValueError("페이지 크기는 1에서 50 사이의 정수여야 합니다.")
-        self.page = page
+        self.page_number = page_number
         self.page_size = page_size

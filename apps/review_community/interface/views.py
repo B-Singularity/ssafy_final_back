@@ -39,6 +39,8 @@ class MovieCommentListCreateAPIView(APIView):
             response_serializer = CommentListResponseSerializer(comment_list_dto)
             return Response(response_serializer.data)
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return Response({"error": "댓글 목록 조회 중 오류 발생"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def post(self, request, movie_id):
